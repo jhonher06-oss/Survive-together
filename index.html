@@ -1,0 +1,33 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Survive Together MVP</title><style>
+html,body{margin:0;height:100%;overflow:hidden;background:#183022;font-family:system-ui;color:#fff}
+canvas{width:100vw;height:100vh;display:block}#ui{position:fixed;inset:0;pointer-events:none}
+.panel{background:#0009;border:1px solid #fff3;border-radius:12px;padding:8px 10px}
+#top{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between}
+#name{width:105px;padding:8px;border-radius:8px;border:0}button{padding:9px;border:0;border-radius:9px;pointer-events:auto}
+#pad{position:absolute;bottom:18px;left:18px;display:grid;grid-template-columns:50px 50px 50px;gap:5px;pointer-events:auto}
+#pad button:first-child{grid-column:2}#hint{position:absolute;right:15px;bottom:15px;font-size:12px;max-width:210px}
+</style></head><body><canvas id="c"></canvas><div id="ui">
+<div id="top"><div class="panel"><b>🌲 SURVIVE TOGETHER</b><div id="status">Connecting…</div></div>
+<div class="panel"><input id="name" placeholder="Your name" maxlength="16"><button id="join">Join</button></div></div>
+<div id="pad"><button data-k="up">▲</button><button data-k="left">◀</button><button data-k="down">▼</button><button data-k="right">▶</button></div>
+<div id="hint" class="panel">MVP 0.1 — move around the island and see other players in real time.</div></div>
+<script>
+const c=document.getElementById("c"),x=c.getContext("2d"),status=document.getElementById("status"),keys={};let me=null,P={},W,H;
+function resize(){W=innerWidth;H=innerHeight;c.width=W*devicePixelRatio;c.height=H*devicePixelRatio;c.style.width=W+"px";c.style.height=H+"px";x.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}addEventListener("resize",resize);resize();
+const ws=new WebSocket((location.protocol==="https:"?"wss":"ws")+"://"+location.host);
+ws.onopen=()=>status.textContent="Connected";ws.onclose=()=>status.textContent="Disconnected";
+ws.onmessage=e=>{let m=JSON.parse(e.data);if(m.type==="welcome"){me=m.id;m.players.forEach(p=>P[p.id]=p);join()}if(m.type==="players"){P={};m.players.forEach(p=>P[p.id]=p)}if(m.type==="move"&&P[m.id]){P[m.id].x=m.x;P[m.id].y=m.y}};
+function join(){ws.send(JSON.stringify({type:"join",name:document.getElementById("name").value||"Player"}))}
+document.getElementById("join").onclick=join;
+addEventListener("keydown",e=>keys[e.key.toLowerCase()]=1);addEventListener("keyup",e=>keys[e.key.toLowerCase()]=0);
+document.querySelectorAll("#pad button").forEach(b=>{let k=b.dataset.k;b.onpointerdown=e=>{e.preventDefault();keys[k]=1};b.onpointerup=b.onpointercancel=b.onpointerleave=e=>{e.preventDefault();keys[k]=0}});
+function pos(v){let s=Math.min(W,H)/1280;return {x:W/2+(v.x-500)*s,y:H/2+(v.y-500)*s}}
+function draw(){x.clearRect(0,0,W,H);x.fillStyle="#294d35";x.fillRect(0,0,W,H);let s=Math.min(W,H)/1280;
+x.save();x.translate(W/2-500*s,H/2-500*s);x.scale(s,s);x.fillStyle="#79a85e";x.beginPath();x.roundRect(0,0,1000,1000,80);x.fill();
+x.fillStyle="#4f8fa4";x.beginPath();x.roundRect(100,690,270,150,45);x.fill();
+[[180,180],[260,260],[350,170],[700,190],[790,300],[650,760],[760,700],[420,800]].forEach(a=>{x.fillStyle="#5b412b";x.fillRect(a[0]-7,a[1],14,40);x.fillStyle="#28623d";x.beginPath();x.arc(a[0],a[1],30,0,7);x.fill()});
+[[160,450],[800,560],[570,280]].forEach(a=>{x.fillStyle="#777";x.beginPath();x.ellipse(a[0],a[1],25,16,0,0,7);x.fill()});x.restore();
+Object.values(P).forEach(p=>{let q=pos(p);x.fillStyle="#0004";x.beginPath();x.ellipse(q.x,q.y+12,14,7,0,0,7);x.fill();x.fillStyle=p.id===me?"#e8bd35":"#5f86d6";x.beginPath();x.arc(q.x,q.y-3,12,0,7);x.fill();x.fillStyle="#fff";x.textAlign="center";x.font="12px system-ui";x.fillText(p.name,q.x,q.y-22)})}
+function loop(){let p=P[me];if(p&&ws.readyState===1){let dx=(keys.d||keys.arrowright||keys.right?1:0)-(keys.a||keys.arrowleft||keys.left?1:0),dy=(keys.s||keys.arrowdown||keys.down?1:0)-(keys.w||keys.arrowup||keys.up?1:0);if(dx||dy){let l=Math.hypot(dx,dy);p.x+=dx/l*3.2;p.y+=dy/l*3.2;ws.send(JSON.stringify({type:"move",x:p.x,y:p.y}))}}draw();requestAnimationFrame(loop)}loop();
+</script></body></html>
